@@ -4,10 +4,17 @@ This program is useful for people trying to memorize the contents of a table. Fo
 
 Simply put the items into an Excel spreadsheet where the column and row header indicate the data that the person needs to memorize and then use the test button to test yourself on the data.
 
-| Word | Definition |
-| :-------: | :-------------: |
-| The Book | Das Buch
-   
+| Objekt | Pronomen | Akkusativ | Dativ | 
+| ------------- | ------------- | ------------- | 
+| ich | mich | mir | 
+| du | dich | dir | 
+| er/der | ihn | ihm | 
+| sie/die | sie | ihr | 
+| es/das | es | ihm | 
+| wir | uns | uns | 
+| ihr | euch | euch | 
+| sie(plural) | sie | ihnen | 
+| Sie | Sie | Ihnen | 
    
 
 ## Getting Started
