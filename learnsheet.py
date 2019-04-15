@@ -29,6 +29,11 @@ class OptionMenu(tk.OptionMenu):
             command=tk._setit(self.variable, label, self._command))
 
 class Item:
+
+    """
+        Item Class for storing the Item Object
+    """
+
     def __init__(self,row,column,value):
         self.row = row
         self.column = column
@@ -42,8 +47,6 @@ class GUI(Frame):
     def __init__(self, master):
         Frame.__init__(self, master=None)
 
-        #self.protocol("WM_DELETE_WINDOW", master.destroy)
-
         self.itemlist = list()
 
         self.master = master
@@ -52,8 +55,8 @@ class GUI(Frame):
         self.destination = tk.StringVar(self.master, value='')
         self.labeldestination = Label(self.master, text="Workbook:")
         self.labeldestination.place(x=20, y=20)
-        self.entrydistinationdir = Entry(self.master, textvariable=self.destination, state='readonly')
-        self.entrydistinationdir.place(x=150, y=18)
+        self.entryfilepath = Entry(self.master, textvariable=self.destination, state='readonly')
+        self.entryfilepath.place(x=150, y=18)
         self.btn_browse = Button(self.master, text="Browse", command=self.find_file)
         self.btn_browse.place(x=350, y=18)
 
@@ -75,16 +78,18 @@ class GUI(Frame):
         self.loadstatus = Label(self.master, text="")
         self.loadstatus.place(x=20, y=300)
 
-
+        self.entryfilepath.focus()
 
 
 
 
 
     def tb_test(self):
+        """
+            Method to load the modal Testing Window
+        """
         d = TestWindow(root, self.itemlist, self.max_rows, self.max_cols)
         root.wait_window(d.top)
-        # self.valor.set(d.ejemplo)
 
     def update_sheetlist(self):
         """
@@ -104,37 +109,37 @@ class GUI(Frame):
 
     def find_file(self):
         """
-            Method to open a Directory selection dialog
+            Method to open a file selection dialog
         """
 
         file_path = filedialog.askopenfilename(title="Select File")
         self.destination.set(file_path)
+        if len(file_path) > 0:
 
-        print "Reading workbook...."
-        self.workbook = openpyxl.load_workbook(file_path)
-        print "Done Reading workbook...."
-        self.update_sheetlist()
+            print "Reading workbook...."
+            self.workbook = openpyxl.load_workbook(file_path)
+            print "Done Reading workbook...."
+            self.update_sheetlist()
 
 
     def load_worksheet(self):
+
+        """
+            Method to load the worksheet selected in the list
+        """
 
         self.itemlist = list()
         print "Finding Sheet...."
         sheet = self.workbook.get_sheet_by_name(self.selectedfolder.get())
         print "Found Sheet...."
 
-        print "Calculating Total Rows...."
-        print "Total Rows: %s " % sheet.max_row
-
         self.max_rows = sheet.max_row
-
-        print "Calculating Total Cols...."
-        print "Total Cols: %s " % sheet.max_column
-
         self.max_cols = sheet.max_column
 
-        row_count = 0
         print "Loading List...."
+
+        # Todo: Perhaps not memory efficient to load the row and column headings into each list entry
+        #           but it is useful for when the list is randomized
         for row_num in range(2,self.max_rows+1):
             for col_num in range(2, self.max_cols + 1):
                 row_heading = sheet.cell(row=row_num, column=1).value
@@ -150,6 +155,7 @@ class GUI(Frame):
 
 
 class TestWindow:
+
     def __init__(self, parent, itemlist,rows,cols):
         self.safelist = copy.copy(itemlist)
         self.itemlist = copy.copy(itemlist)
@@ -185,12 +191,10 @@ class TestWindow:
 
         self.lblprogress = Label(self.top, text="")
         self.lblprogress.place(x=150, y=155)
-        #self.progress.pack()
 
 
         self.lblreview = Label(self.top, text="")
         self.lblreview.place(x=150, y=175)
-        #self.progress.pack()
 
         self.lblaccuracy = Label(self.top, text="")
         self.lblaccuracy.place(x=150, y=195)
@@ -198,29 +202,30 @@ class TestWindow:
         self.lblhint= Label(self.top, text="Hint?")
         self.lblhint.place(x=150, y=225)
 
-        self.btn_hint = Button(self.top, text="Hint", command=self.hintitem)
-        self.btn_hint.place(x=50, y=225)
+        self.btnhint = Button(self.top, text="Hint", command=self.hintitem)
+        self.btnhint.place(x=50, y=225)
 
 
         self.drawindex()
 
         self.top.bind('<Return>', (lambda e, b=self.btn_check: b.invoke()))
 
-        self.btn_quit = Button(self.top, text="Done", command=self.quit)
-        self.btn_quit.place(x=150, y=250)
-        self.btn_quit.place_forget()
+        self.btnquit = Button(self.top, text="Done", command=self.quit)
+        self.btnquit.place(x=150, y=250)
+        self.btnquit.place_forget()
 
         self.btn_reset = Button(self.top, text="Reset", command=self.reset)
         self.btn_reset.place(x=350, y=250)
         self.btn_reset.place_forget()
 
+        self.entryfield.focus()
 
-        # b = Button(self.top, text="Next", command=self.nextitem)
-        # b.pack(pady=5)
-        # b = Button(self.top, text="Previous", command=self.previousitem)
-        # b.pack(pady=5)
 
     def reset(self):
+        """
+            Method to reset the status of the test and copy the original list
+        """
+
         self.itemlist = copy.copy(self.safelist)
         self.missedlist = list()
         random.shuffle(self.itemlist)
@@ -233,9 +238,9 @@ class TestWindow:
         self.missedit = False
         self.review = False
         self.listcount = len(self.itemlist)
-        self.btn_quit.place_forget()
+        self.btnquit.place_forget()
         self.btn_reset.place_forget()
-        self.btn_hint.configure(state=NORMAL)
+        self.btnhint.configure(state=NORMAL)
         self.btn_check.configure(state=NORMAL)
 
         self.drawindex()
@@ -243,6 +248,11 @@ class TestWindow:
         self.drawprogress()
 
     def misseditem(self):
+
+        """
+            Method to handle missed responses
+        """
+
         self.missedit = True
         self.misscount = self.misscount + 1
         if self.review == False:
@@ -250,10 +260,17 @@ class TestWindow:
         self.missedlist.append(self.itemlist[self.itemindex])
 
     def check_entry(self):
+
+        """
+            Method to check if the user input is correct
+        """
+
         item = self.itemlist[self.itemindex]
         row,col,value = item.get()
         print "Testing: %s" % (self.itemtext())
         print "Correct Value: %s" % (value)
+
+        # If the entry is correct go to the next item
         if (value == self.entry.get()):
             print "Correct Entry: %s" % (self.entry.get())
             if (self.missedit == False):
@@ -261,6 +278,8 @@ class TestWindow:
                 if self.review == False:
                     self.totalhitcount = self.totalhitcount + 1
             self.nextitem()
+
+        # If the entry is not correct, add it to the missed list
         else:
             print "Incorrect Entry: %s" % (self.entry.get())
             if (self.missedit == False):
@@ -268,6 +287,12 @@ class TestWindow:
             self.drawindex()
 
     def hintitem(self):
+
+        """
+            Method to display a hint if the user doesn't know the answer
+                if the user requires a hint, add it to the missed list
+        """
+
         item = self.itemlist[self.itemindex]
         row,col,value = item.get()
         print "Correct Value: %s" % (value)
@@ -277,6 +302,12 @@ class TestWindow:
 
 
     def nextitem(self, event=None):
+
+        """
+            Method to move on to the next item, if the end is reached move the missed list to the current list
+                and start over with the missed list
+        """
+
         self.lblhint.config(text="Hint?")
         self.missedit = False
         if self.itemindex + 1 < self.listcount:
@@ -293,50 +324,62 @@ class TestWindow:
 
         self.drawindex()
 
-    def previousitem(self, event=None):
-        self.missedit = False
-        if self.itemindex > 0:
-            self.itemindex = self.itemindex -1
-
-        self.drawindex()
 
     def drawprogress(self):
+        """
+            Method to draw the progress in the labels
+        """
         progresstext = "Missed: %s Correct: %s Progress: %s of %s" % (
         self.misscount, self.hitcount, self.itemindex + 1, self.listcount)
+
+        # If not in "Review" mode, display the progress in the progress label
         if (self.review == False):
             self.lblprogress.config(text=progresstext)
             self.lblreview.config(text="")
+
+        # If in "Review" mode, display the progress in the review label
         else:
             progresstext = "Review! %s" % (progresstext)
             self.lblreview.config(text=progresstext)
 
+        # Calculate and display the accuracy of the answers
         if (self.totalmisscount + self.totalhitcount > 0):
             accuracy = (float(self.totalhitcount) / float(self.totalmisscount + self.totalhitcount)) * 100
             accuracytext = "Accuracy: %3.2f%%" % ( accuracy)
             self.lblaccuracy.config(text=accuracytext)
         else:
             self.lblaccuracy.config(text="")
-
     def itemtext(self):
 
+        """
+            Method to return the item text for the current item
+        """
         item = self.itemlist[self.itemindex]
         row, col, value = item.get()
         itemtext = "%s : %s" % (row, col)
         return itemtext
 
     def drawindex(self):
+
+        """
+            Method to draw the current index
+        """
+
+        # Make the entry field white if the answer is correct
         if (self.missedit == False):
             self.entryfield.configure(background='white')
+        # Make the entry field red if the last answer is correct
         else:
             self.entryfield.configure(background='red')
 
+        # If the hitcount is equal to the listcount, then there were no errors and the test is complette
         if(self.hitcount == self.listcount ):
-            #progresstext = "Finished!"
+
             self.drawprogress()
-            self.btn_hint.configure(state=DISABLED)
+            self.btnhint.configure(state=DISABLED)
             self.btn_check.configure(state=DISABLED)
 
-            self.btn_quit.place(x=150, y=250)
+            self.btnquit.place(x=150, y=250)
             self.btn_reset.place(x=350, y=250)
 
         else:
@@ -348,10 +391,11 @@ class TestWindow:
     def quit(self, event=None):
         self.top.destroy()
 
-    def cancel(self, event=None):
-        self.top.destroy()
 
 root = Tk()
 root.title("Learn from Spreadsheet")
 main_ui = GUI(root)
+root.lift()
+root.attributes('-topmost',True)
+root.after_idle(root.attributes,'-topmost',False)
 root.mainloop()
