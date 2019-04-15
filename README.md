@@ -54,7 +54,7 @@ Run pybuild.sh and deploy the .app file with your favorite deployemt scheme
 
 ## Built With
 
-If you want to build an .app package for use on MacOS use the pyinstaller.sh script. You can user this script. 
+If you want to build an .app package for use on MacOS use the pybuid.sh (pyinstaller) script. You can use this script. 
 
 ## Contributing
 
@@ -75,5 +75,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* All the great people who created openpyxl and tkinter
+* All the great people who created openpyxl and tkinter (and pyinstaller)
+* Also, I used liberally from sample code I found on the internet. I cannot point to a specific example since it is a 
+combination of many people's contributions. Be kind. Share!
 
