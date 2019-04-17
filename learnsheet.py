@@ -1,9 +1,13 @@
 #!/usr/bin/env python
+# encoding=utf-8
 #
 # Python GUI to test memorization from an Excel Spreadsheet
 #
 # DJS Apr 2019
 #
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 import Tkinter as tk
 
@@ -12,7 +16,59 @@ from tkinter import *
 import openpyxl
 import random
 import copy
+from unicodedata import lookup
+import os
 
+class Diacritical:
+    """Mix-in class that adds keyboard bindings for accented characters, plus
+    other common functionality."""
+
+    if os.name == "nt":
+        stroke = '/'
+    else:
+        stroke = 'minus'
+    accents = (('acute', "'"), ('grave', '`'), ('circumflex', '^'),
+               ('tilde', '='), ('diaeresis', '"'), ('cedilla', ','),
+               ('stroke', stroke),('diaeresis','u'))
+
+    def __init__(self):
+        # Fix some non-Windows bindings
+        if os.name == 'nt':
+            self.bind("<Control-Key-a>", self.select_all)
+            self.bind("<Control-Key-/>", lambda event: "break")
+        # Diacritical bindings
+        for a, k in self.accents:
+            self.bind("<Control-Key-%s><Key>" % k,
+                        lambda event, a=a: self.insert_accented(event.char, a))
+
+    def insert_accented(self, c, accent):
+        if c.isalpha():
+            if c.isupper():
+                cap = 'capital'
+            else:
+                cap = 'small'
+            try:
+                c = lookup("latin %s letter %c with %s" % (cap, c, accent))
+                self.insert(INSERT, c)
+                return "break"
+            except KeyError, e:
+                pass
+
+
+class ExtendedEntry(tk.Entry, Diacritical):
+    """
+        Extend the tkinter Options Menu to add the addOption method which doesn't seem to be present
+    """
+
+
+    def __init__(self, *args, **kw):
+        entry = tk.Entry.__init__(self, *args, **kw)
+        Diacritical.__init__(self)
+        return entry
+
+    def select_all(self, event=None):
+        self.selection_range(0, END)
+        return "break"
 
 
 class OptionMenu(tk.OptionMenu):
@@ -34,14 +90,24 @@ class Item:
         Item Class for storing the Item Object
     """
 
-    def __init__(self,row,column,value):
+    def __init__(self,row,column,value,col_heading):
         self.row = row
         self.column = column
         self.value = value
+        self.col_heading = col_heading
 
-    def get(self):
-        return self.row,self.column, self.value
+    def get_value(self):
+        return self.value
 
+
+    def get_row(self):
+        return self.row
+
+    def get_col(self):
+        return self.column
+
+    def get_col_heading(self):
+        return self.col_heading
 
 class GUI(Frame):
     def __init__(self, master):
@@ -71,9 +137,14 @@ class GUI(Frame):
         self.load_button.place(x=350, y=168)
 
 
-        self.test_button = Button(self.master, text="Test",state=DISABLED, command=self.tb_test)
-        self.test_button.place(x=150, y=250)
 
+
+        self.test_button = Button(self.master, text="Test",state=DISABLED, command=self.tb_test)
+        self.test_button.place(x=225, y=250)
+
+
+        self.learn_button = Button(self.master, text="Learn",state=DISABLED, command=self.tb_learn)
+        self.learn_button .place(x=150, y=250)
 
         self.loadstatus = Label(self.master, text="")
         self.loadstatus.place(x=20, y=300)
@@ -88,7 +159,14 @@ class GUI(Frame):
         """
             Method to load the modal Testing Window
         """
-        d = TestWindow(root, self.itemlist, self.max_rows, self.max_cols)
+        d = TestWindow(root, self.itemlist, "Test : %s" % (self.selectedfolder.get()) , self.max_rows, self.max_cols)
+        root.wait_window(d.top)
+
+    def tb_learn(self):
+        """
+            Method to load the modal Testing Window
+        """
+        d = LearnWindow(root, self.itemlist, "Learn : %s" % (self.selectedfolder.get()) , self.max_rows, self.max_cols)
         root.wait_window(d.top)
 
     def update_sheetlist(self):
@@ -144,24 +222,134 @@ class GUI(Frame):
             for col_num in range(2, self.max_cols + 1):
                 row_heading = sheet.cell(row=row_num, column=1).value
                 col_heading = sheet.cell(row=1, column=col_num).value
+                first_col_heading = sheet.cell(row=1, column=1).value
                 item_value = sheet.cell(row=row_num, column=col_num).value
-                self.itemlist.append(Item(row_heading, col_heading, item_value))
+                self.itemlist.append(Item(row_heading, col_heading, item_value,first_col_heading))
 
         self.loadstatus.configure(text="Loaded: %s items" % (len(self.itemlist)))
         self.test_button.configure(state=NORMAL)
+        self.learn_button.configure(state=NORMAL)
+
+
+class LearnWindow:
+
+    def __init__(self, parent, itemlist,title,rows,cols):
+        self.itemlist = copy.copy(itemlist)
+        random.shuffle(self.itemlist)
+
+        self.title = title
+        self.itemindex = 0
+        self.listcount = len(self.itemlist)
+
+        self.top = Toplevel(parent)
+        self.top.transient(parent)
+        self.top.grab_set()
+        self.top.title( self.title )
+        self.top.geometry("500x400+300+300")
+        self.labelitem = Label(self.top, text="")
+        self.labelitem.place(x=150, y=50)
+
+        self.labelvalue = Label(self.top, text="")
+        self.labelvalue.place(x=150, y=75)
+
+
+        self.btn_next = Button(self.top, text="Next", command=self.nextitem)
+        self.btn_next.place(x=350, y=75)
+
+        self.btn_previous = Button(self.top, text="Previous", command=self.previousitem)
+        self.btn_previous.place(x=50, y=75)
+
+        self.lblprogress = Label(self.top, text="")
+        self.lblprogress.place(x=150, y=155)
+
+        self.hide = IntVar()
+
+        self.Checkbutton = Checkbutton(self.top, text="Hide answer?", variable=self.hide, command=self.hidecheck)
+        self.Checkbutton.place(x=150, y=200)
+
+        self.drawindex()
+
+        self.top.bind('<Return>', (lambda e, b=self.btn_next: b.invoke()))
 
 
 
+    def hidecheck(self):
+        self.drawindex()
+
+    def nextitem(self):
+
+        """
+            Method to move on to the next item
+        """
+
+        if self.itemindex + 1 < self.listcount:
+            self.itemindex = self.itemindex +1
+        self.drawindex()
+
+    def previousitem(self):
+
+        """
+            Method to move to the previous item
+        """
+
+        if self.itemindex - 1 > 0:
+            self.itemindex = self.itemindex - 1
+        self.drawindex()
+
+
+    def drawprogress(self):
+        """
+            Method to draw the progress in the label
+        """
+
+        progresstext = "Progress: %s of %s" % (self.itemindex + 1, self.listcount)
+
+        self.lblprogress.config(text=progresstext)
+
+    def itemtext(self):
+
+        """
+            Method to return the item text for the current item
+        """
+        item = self.itemlist[self.itemindex]
+        itemtext = "%s : %s" % (item.get_col_heading(), item.get_row())
+        return itemtext
+
+    def itemvalue(self):
+
+        """
+            Method to return the item text for the current item
+        """
+        item = self.itemlist[self.itemindex]
+        valuetext = "%s : %s" % (item.get_col(), item.get_value())
+        return valuetext
+
+    def drawindex(self):
+
+        """
+            Method to draw the current index
+        """
+        self.labelitem.config(text=self.itemtext())
+        if (self.hide.get() > 0) :
+            self.labelvalue.config(text="")
+        else:
+            self.labelvalue.config(text=self.itemvalue())
+        self.drawprogress()
+
+
+    def quit(self):
+        self.top.destroy()
 
 
 class TestWindow:
 
-    def __init__(self, parent, itemlist,rows,cols):
+    def __init__(self, parent, itemlist,title,rows,cols):
         self.safelist = copy.copy(itemlist)
         self.itemlist = copy.copy(itemlist)
         self.missedlist = list()
         random.shuffle(self.itemlist)
 
+        self.title = title
         self.itemindex = 0
         self.misscount = 0
         self.totalmisscount = 0
@@ -175,17 +363,20 @@ class TestWindow:
         self.top = Toplevel(parent)
         self.top.transient(parent)
         self.top.grab_set()
-        self.top.title("Test")
+        self.top.title( self.title )
         self.top.geometry("500x400+300+300")
         self.labelitem = Label(self.top, text="")
         self.labelitem.place(x=150, y=50)
         #self.labelitem.pack()
 
 
+
+
         self.entry = tk.StringVar(self.top, value='')
 
-        self.entryfield = Entry(self.top, textvariable=self.entry)
+        self.entryfield = ExtendedEntry(self.top,  textvariable=self.entry)
         self.entryfield.place(x=150, y=75)
+
         self.btn_check = Button(self.top, text="Check", command=self.check_entry)
         self.btn_check.place(x=350, y=75)
 
@@ -205,20 +396,38 @@ class TestWindow:
         self.btnhint = Button(self.top, text="Hint", command=self.hintitem)
         self.btnhint.place(x=50, y=225)
 
+        self.labelinstructions = Message(self.top, text="To Input Diacritical Characters (ä,é,ñ,ü,è....) press:\n",width = 350)
+        self.labelinstructions.place(x=20, y=250)
+
+        self.labelinstructions1 = Message(self.top, text= " ctrl+' for acute\n"
+                                                        + " ctrl+` for grave\n"
+                                                        + " ctrl+u for diaeresis\n"
+                                                        + " ctrl+= for tilde\n"
+                                                        + " ctrl+^ for circumflex\n"
+                                         , width=350)
+        self.labelinstructions1.place(x=20, y=270)
+
+        self.labelinstructions2 = Message(self.top, text= "(i.e. ctrl+',e for é )\n"
+                                                        + "(i.e. ctrl+`,e for è )\n"
+                                                        + "(i.e. ctrl+u,a for ä )\n"
+                                                        + "(i.e. ctrl+=,n for ñ )\n"
+                                                        + "(i.e. ctrl+^,n for â )\n"
+                                         ,width = 400)
+        self.labelinstructions2.place(x=160, y=270)
+
 
         self.drawindex()
 
         self.top.bind('<Return>', (lambda e, b=self.btn_check: b.invoke()))
 
         self.btnquit = Button(self.top, text="Done", command=self.quit)
-        self.btnquit.place(x=150, y=250)
         self.btnquit.place_forget()
 
         self.btn_reset = Button(self.top, text="Reset", command=self.reset)
-        self.btn_reset.place(x=350, y=250)
         self.btn_reset.place_forget()
 
         self.entryfield.focus()
+
 
 
     def reset(self):
@@ -266,7 +475,7 @@ class TestWindow:
         """
 
         item = self.itemlist[self.itemindex]
-        row,col,value = item.get()
+        value = item.get_value()
         print "Testing: %s" % (self.itemtext())
         print "Correct Value: %s" % (value)
 
@@ -294,14 +503,14 @@ class TestWindow:
         """
 
         item = self.itemlist[self.itemindex]
-        row,col,value = item.get()
+        value = item.get_value()
         print "Correct Value: %s" % (value)
 
         self.lblhint.config(text=value)
         self.misseditem()
 
 
-    def nextitem(self, event=None):
+    def nextitem(self):
 
         """
             Method to move on to the next item, if the end is reached move the missed list to the current list
@@ -355,8 +564,7 @@ class TestWindow:
             Method to return the item text for the current item
         """
         item = self.itemlist[self.itemindex]
-        row, col, value = item.get()
-        itemtext = "%s : %s" % (row, col)
+        itemtext = "%s : %s" % (item.get_row(), item.get_col())
         return itemtext
 
     def drawindex(self):
@@ -379,8 +587,8 @@ class TestWindow:
             self.btnhint.configure(state=DISABLED)
             self.btn_check.configure(state=DISABLED)
 
-            self.btnquit.place(x=150, y=250)
-            self.btn_reset.place(x=350, y=250)
+            self.btnquit.place(x=150, y=360)
+            self.btn_reset.place(x=350, y=360)
 
         else:
             self.entry.set("")
@@ -388,7 +596,7 @@ class TestWindow:
             self.drawprogress()
 
 
-    def quit(self, event=None):
+    def quit(self):
         self.top.destroy()
 
 
