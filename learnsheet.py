@@ -57,7 +57,8 @@ class Diacritical:
 
 class ExtendedEntry(tk.Entry, Diacritical):
     """
-        Extend the tkinter Options Menu to add the addOption method which doesn't seem to be present
+        Extend the tkinter Entry to add support for Diacritical characters doesn't seem work with the long press option
+        on macOS
     """
 
 
