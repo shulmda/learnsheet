@@ -26,7 +26,7 @@ MacOS High Sierra (10.13+)
 python 2.7
 pip
 openpyxl
-tkinter (should be installed on MacOS by default)
+wxpython
 pyinstaller (optional)
 
 ### Installing 
@@ -35,13 +35,19 @@ If you have not installed pip, you can finda  guide here:
 https://www.makeuseof.com/tag/install-pip-for-python/
 
 
-1. Install openpyxl ()
+1. Install openpyxl (https://openpyxl.readthedocs.io/en/stable/)
 ```
 pip install openpyxl
 
 ```
 
-2. (Optional) Install pyinstaller ( https://www.pyinstaller.org/)
+2. Install wxPython (https://wiki.wxpython.org/How%20to%20install%20wxPython)
+```
+sudo pip install wxPython
+
+```
+
+3. (Optional) Install pyinstaller ( https://www.pyinstaller.org/)
 ```
 pip install pyinstaller
 
