@@ -75,9 +75,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* All the great people who created openpyxl and tkinter (and pyinstaller)
-* Special thanks to the guys at https://wiki.python.org/moin/DiacriticalEditor for the sample code to handle Diacritical letters 
-* Special thanks for the guys at http://code.activestate.com/lists/python-list/391532/ for help dynamically adding items to the options menu
+* All the great people who created openpyxl and wxPython (and pyinstaller)
 * Also, I generally used sample code I found on the internet. I cannot always point to a specific example since it is a 
 combination of many people's contributions. 
 

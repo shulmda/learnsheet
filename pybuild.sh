@@ -1,4 +1,4 @@
-pyinstaller --hidden-import tkinter --onefile --windowed ./learnsheet.py
+pyinstaller --hidden-import wx --onefile --windowed ./learnsheet.py
 rm -f learnsheet.zip 
 mkdir learnsheet
 cp -R dist/ learnsheet

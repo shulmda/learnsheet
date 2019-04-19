@@ -9,81 +9,15 @@ import sys
 reload(sys)
 sys.setdefaultencoding('utf8')
 
-import Tkinter as tk
-
-from tkinter import filedialog
-from tkinter import *
 import openpyxl
 import random
 import copy
-from unicodedata import lookup
-import os
 
-class Diacritical:
-    """Mix-in class that adds keyboard bindings for accented characters, plus
-    other common functionality."""
+import wx
+import wx.grid
 
-    if os.name == "nt":
-        stroke = '/'
-    else:
-        stroke = 'minus'
-    accents = (('acute', "'"), ('grave', '`'), ('circumflex', '^'),
-               ('tilde', '='), ('diaeresis', '"'), ('cedilla', ','),
-               ('stroke', stroke),('diaeresis','u'))
-
-    def __init__(self):
-        # Fix some non-Windows bindings
-        if os.name == 'nt':
-            self.bind("<Control-Key-a>", self.select_all)
-            self.bind("<Control-Key-/>", lambda event: "break")
-        # Diacritical bindings
-        for a, k in self.accents:
-            self.bind("<Control-Key-%s><Key>" % k,
-                        lambda event, a=a: self.insert_accented(event.char, a))
-
-    def insert_accented(self, c, accent):
-        if c.isalpha():
-            if c.isupper():
-                cap = 'capital'
-            else:
-                cap = 'small'
-            try:
-                c = lookup("latin %s letter %c with %s" % (cap, c, accent))
-                self.insert(INSERT, c)
-                return "break"
-            except KeyError, e:
-                pass
-
-
-class ExtendedEntry(tk.Entry, Diacritical):
-    """
-        Extend the tkinter Entry to add support for Diacritical characters doesn't seem work with the long press option
-        on macOS
-    """
-
-
-    def __init__(self, *args, **kw):
-        entry = tk.Entry.__init__(self, *args, **kw)
-        Diacritical.__init__(self)
-        return entry
-
-    def select_all(self, event=None):
-        self.selection_range(0, END)
-        return "break"
-
-
-class OptionMenu(tk.OptionMenu):
-    """
-        Extend the tkinter Options Menu to add the addOption method which doesn't seem to be present
-    """
-
-    def __init__(self, *args, **kw):
-        self._command = kw.get("command")
-        self.variable = args[1]
-        tk.OptionMenu.__init__(self, *args, **kw)
-    def addOption(self, label):
-        self["menu"].add_command(label=label,
-            command=tk._setit(self.variable, label, self._command))
+# ToDo: Remove print statements used for logging
+# ToDo: Perhaps an ItemList class would be a good idea, but the methods of the standardlist class seem enough...
 
 class Item:
 
@@ -97,111 +31,205 @@ class Item:
         self.value = value
         self.col_heading = col_heading
 
-    def get_value(self):
+    def GetValue(self):
         return self.value
 
 
-    def get_row(self):
+    def GetRow(self):
         return self.row
 
-    def get_col(self):
+    def GetCol(self):
         return self.column
 
-    def get_col_heading(self):
+    def getColHeading(self):
         return self.col_heading
 
-class GUI(Frame):
-    def __init__(self, master):
-        Frame.__init__(self, master=None)
+def CheckItemIsGerman(item):
+    value = item.GetValue()
+
+    if (value.startswith("die")):
+        return "die"
+    if (value.startswith("der")):
+        return "der"
+    if (value.startswith("das")):
+        return "das"
+    row = item.GetRow()
+    if (row.startswith("die")):
+        return "die"
+    if (row.startswith("der")):
+        return "der"
+    if (row.startswith("das")):
+        return "das"
+    col = item.GetCol()
+
+    if (col.startswith("die")):
+        return "die"
+    if (col.startswith("der")):
+        return "der"
+    if (col.startswith("das")):
+        return "das"
+
+    return ""
+
+
+
+
+class SampleGrid(wx.grid.Grid):
+    def __init__(self, parent,pos,size):
+        wx.grid.Grid.__init__(self, parent, -1)
+
+        self.SetPosition(pos)
+        self.SetSize(size)
+
+        personalPronomen = ["ich", "du", "er/sie/es" , "wir", "ihr", "Sie/sie"]
+        seinPrasens = ["bin", "bist", "ist", "sind", "seid", "sind"]
+        seinPrateritum = ["war", "warst", "war", "waren", "wart", "waren"]
+        self.CreateGrid(len(personalPronomen)+1, 3)
+        self.SetColLabelValue(0, "A")
+        self.SetColLabelValue(1, "B")
+        self.SetColLabelValue(2, "C")
+
+        self.SetRowLabelValue(0, "1")
+        self.SetCellValue(0, 0, "Pronomen")
+        self.SetCellValue(0, 1, "Präsens")
+        self.SetCellValue(0, 2, "Präteritum")
+        self.SetReadOnly(0, 0, isReadOnly=True)
+        self.SetReadOnly(0, 1, isReadOnly=True)
+        self.SetReadOnly(0, 2, isReadOnly=True)
+
+        row = 0
+        for i in range(0,len(personalPronomen)):
+            row=row+1
+            self.SetRowLabelValue(row, "%s" % (row+1))
+            self.SetCellValue(row, 0, personalPronomen[i])
+            self.SetCellValue(row, 1, seinPrasens[i])
+            self.SetCellValue(row, 2, seinPrateritum[i])
+            self.SetReadOnly(row, 0, isReadOnly=True)
+            self.SetReadOnly(row, 1, isReadOnly=True)
+            self.SetReadOnly(row, 2, isReadOnly=True)
+
+
+
+class MainWindow(wx.Frame):
+    def __init__(self, parent, title):
+        wx.Frame.__init__(self, parent, title=title, size=(500,400), pos=(300,300))
+
+        # Setup Window Close event
+        randomId = wx.NewId()
+        self.Bind(wx.EVT_MENU, self.OnCloseWindow, id=randomId)
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('W'), randomId )])
+        self.SetAcceleratorTable(accel_tbl)
+
+        # Setting up the menu.
+        filemenu= wx.Menu()
+
+        # wx.ID_ABOUT and wx.ID_EXIT are standard IDs provided by wxWidgets.
+        filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
+
+        # Creating the menubar.
+        menuBar = wx.MenuBar()
+        self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 
         self.itemlist = list()
 
-        self.master = master
-        self.master.geometry("500x400+300+300")
+        self.lbldestination = wx.StaticText(self, label="Workbook:", pos=(20, 20))
+        self.txtfilepath = wx.TextCtrl(self, value="", pos=(100, 20), size=(250,-1))
 
-        self.destination = tk.StringVar(self.master, value='')
-        self.labeldestination = Label(self.master, text="Workbook:")
-        self.labeldestination.place(x=20, y=20)
-        self.entryfilepath = Entry(self.master, textvariable=self.destination, state='readonly')
-        self.entryfilepath.place(x=150, y=18)
-        self.btn_browse = Button(self.master, text="Browse", command=self.find_file)
-        self.btn_browse.place(x=350, y=18)
+        self.btnbrowse =wx.Button(self, label="Browse", pos=(360, 18))
+        self.Bind(wx.EVT_BUTTON, self.OnFindFile, self.btnbrowse)
+        self.file_path = ""
 
-
-        self.labelmailfolder = Label(self.master, text="Sheet List:")
-        self.labelmailfolder.place(x=20, y=170)
-        self.selectedfolder = tk.StringVar(self.master)
-        self.selectedfolder.set("<Choose Sheet>")
-        self.optionMenu = OptionMenu(self.master, self.selectedfolder, '<Choose Sheet>')
-        self.optionMenu.place(x=148, y=168)
-        self.load_button = Button(self.master, text="Load",state=DISABLED, command=self.load_worksheet)
-        self.load_button.place(x=350, y=168)
+        self.lblsample = wx.StaticText(self, label="Example:", pos=(20, 105))
+        self.grdsample= SampleGrid(self, pos=(100, 50), size=(340, 100))
 
 
 
+        self.lblsheetlist= wx.StaticText(self, label="Sheet List:", pos=(20, 170))
 
-        self.test_button = Button(self.master, text="Test",state=DISABLED, command=self.tb_test)
-        self.test_button.place(x=225, y=250)
-
-
-        self.learn_button = Button(self.master, text="Learn",state=DISABLED, command=self.tb_learn)
-        self.learn_button .place(x=150, y=250)
-
-        self.loadstatus = Label(self.master, text="")
-        self.loadstatus.place(x=20, y=300)
-
-        self.entryfilepath.focus()
+        self.sheetlist = ['<Choose Sheet>']
+        self.cmbsheetlist = wx.ComboBox(self, pos=(100, 168), size=(200, -1), choices=self.sheetlist, style=wx.CB_DROPDOWN | wx.CB_READONLY)
+        self.Bind(wx.EVT_COMBOBOX, self.OnSheetChange, self.cmbsheetlist)
+        self.sheetname = ""
+        self.max_cols = 0
+        self.max_rows = 0
 
 
+        self.btnlearn =wx.Button(self, label="Learn", pos=(200, 250))
+        self.Bind(wx.EVT_BUTTON, self.OnLearn, self.btnlearn)
+        self.btnlearn.Disable()
 
+        self.btntest =wx.Button(self, label="Test", pos=(325, 250))
+        self.Bind(wx.EVT_BUTTON, self.OnTest,self.btntest)
+        self.btntest.Disable()
 
+        self.btnshow =wx.Button(self, label="Show", pos=(70, 250))
+        self.Bind(wx.EVT_BUTTON, self.OnShow,self.btnshow)
+        self.btnshow.Disable()
 
-    def tb_test(self):
+        self.lblloadstatus = wx.StaticText(self, label="", pos=(20, 300))
+        self.Centre()
+        self.Show(True)
+
+    def OnCloseWindow(self, event):
         """
-            Method to load the modal Testing Window
+            Method to close the application
         """
-        d = TestWindow(root, self.itemlist, "Test : %s" % (self.selectedfolder.get()) , self.max_rows, self.max_cols)
-        root.wait_window(d.top)
+        self.Destroy()
 
-    def tb_learn(self):
+    def OnLearn(self, event):
         """
-            Method to load the modal Testing Window
+            Method to create the Learning Window
         """
-        d = LearnWindow(root, self.itemlist, "Learn : %s" % (self.selectedfolder.get()) , self.max_rows, self.max_cols)
-        root.wait_window(d.top)
+        LearnWindow(self, "Learn : %s" % (self.sheetname),self.itemlist)
 
-    def update_sheetlist(self):
+    def OnTest(self, event):
         """
-            Method to get the list of folders and populate the options Menu
+            Method to create the Testing Window
         """
-        menu = self.optionMenu.children["menu"]
 
-        menu.delete(0, 'end')
-        selectone = False
-        for sheet in self.workbook.worksheets:
-            self.optionMenu.addOption(sheet.title)
-            if (selectone == False):
-                self.selectedfolder.set(sheet.title)
-                selectone = True
+        TestWindow(self, "Test : %s" % (self.sheetname),self.itemlist)
 
-        self.load_button.configure(state=NORMAL)
 
-    def find_file(self):
+    def OnShow(self, event):
+        """
+            Method to create the Show Window
+        """
+
+        ShowWindow(self, "Show : %s" % (self.sheetname),self.itemlist,self.max_rows ,self.max_cols)
+
+
+    def OnSheetChange(self, event):
+        """
+            Method to handle the changing of the sheet
+        """
+
+        self.sheetname = event.GetString()
+        self.LoadWorksheet()
+
+    def OnFindFile(self, event):
         """
             Method to open a file selection dialog
         """
 
-        file_path = filedialog.askopenfilename(title="Select File")
-        self.destination.set(file_path)
-        if len(file_path) > 0:
+        openFileDialog = wx.FileDialog(frame, "Open", "", "",
+                                       "Excel files (*.xlsx)|*.xlsx",
+                                       wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+
+        openFileDialog.ShowModal()
+        print(openFileDialog.GetPath())
+        self.file_path = openFileDialog.GetPath()
+        openFileDialog.Destroy()
+
+        self.txtfilepath.AppendText(self.file_path)
+        if len(self.file_path) > 0:
 
             print "Reading workbook...."
-            self.workbook = openpyxl.load_workbook(file_path)
+            self.workbook = openpyxl.load_workbook(self.file_path)
             print "Done Reading workbook...."
-            self.update_sheetlist()
+            self.UpdateSheetlist()
 
 
-    def load_worksheet(self):
+    def LoadWorksheet(self):
 
         """
             Method to load the worksheet selected in the list
@@ -209,7 +237,7 @@ class GUI(Frame):
 
         self.itemlist = list()
         print "Finding Sheet...."
-        sheet = self.workbook.get_sheet_by_name(self.selectedfolder.get())
+        sheet = self.workbook.get_sheet_by_name(self.sheetname)
         print "Found Sheet...."
 
         self.max_rows = sheet.max_row
@@ -227,124 +255,42 @@ class GUI(Frame):
                 item_value = sheet.cell(row=row_num, column=col_num).value
                 self.itemlist.append(Item(row_heading, col_heading, item_value,first_col_heading))
 
-        self.loadstatus.configure(text="Loaded: %s items" % (len(self.itemlist)))
-        self.test_button.configure(state=NORMAL)
-        self.learn_button.configure(state=NORMAL)
+        self.lblloadstatus.SetLabel(("Loaded: %s items" % (len(self.itemlist))))
+        self.btntest.Enable(enable=True)
+        self.btnlearn.Enable(enable=True)
+        self.btnshow.Enable(enable=True)
 
-
-class LearnWindow:
-
-    def __init__(self, parent, itemlist,title,rows,cols):
-        self.itemlist = copy.copy(itemlist)
-        random.shuffle(self.itemlist)
-
-        self.title = title
-        self.itemindex = 0
-        self.listcount = len(self.itemlist)
-
-        self.top = Toplevel(parent)
-        self.top.transient(parent)
-        self.top.grab_set()
-        self.top.title( self.title )
-        self.top.geometry("500x400+300+300")
-        self.labelitem = Label(self.top, text="")
-        self.labelitem.place(x=150, y=50)
-
-        self.labelvalue = Label(self.top, text="")
-        self.labelvalue.place(x=150, y=75)
-
-
-        self.btn_next = Button(self.top, text="Next", command=self.nextitem)
-        self.btn_next.place(x=350, y=75)
-
-        self.btn_previous = Button(self.top, text="Previous", command=self.previousitem)
-        self.btn_previous.place(x=50, y=75)
-
-        self.lblprogress = Label(self.top, text="")
-        self.lblprogress.place(x=150, y=155)
-
-        self.hide = IntVar()
-
-        self.Checkbutton = Checkbutton(self.top, text="Hide answer?", variable=self.hide, command=self.hidecheck)
-        self.Checkbutton.place(x=150, y=200)
-
-        self.drawindex()
-
-        self.top.bind('<Return>', (lambda e, b=self.btn_next: b.invoke()))
-
-
-
-    def hidecheck(self):
-        self.drawindex()
-
-    def nextitem(self):
-
+    def UpdateSheetlist(self):
         """
-            Method to move on to the next item
+            Method to get the list of folders and populate the options Menu
         """
+        self.cmbsheetlist.Clear()
 
-        if self.itemindex + 1 < self.listcount:
-            self.itemindex = self.itemindex +1
-        self.drawindex()
-
-    def previousitem(self):
-
-        """
-            Method to move to the previous item
-        """
-
-        if self.itemindex - 1 > 0:
-            self.itemindex = self.itemindex - 1
-        self.drawindex()
+        selectone = False
+        for sheet in self.workbook.worksheets:
+            self.cmbsheetlist.Append(sheet.title)
+            if selectone == False:
+                self.cmbsheetlist.Select(0)
+                selectone = True
+                self.sheetname = sheet.title
+        self.LoadWorksheet()
 
 
-    def drawprogress(self):
-        """
-            Method to draw the progress in the label
-        """
-
-        progresstext = "Progress: %s of %s" % (self.itemindex + 1, self.listcount)
-
-        self.lblprogress.config(text=progresstext)
-
-    def itemtext(self):
-
-        """
-            Method to return the item text for the current item
-        """
-        item = self.itemlist[self.itemindex]
-        itemtext = "%s : %s" % (item.get_col_heading(), item.get_row())
-        return itemtext
-
-    def itemvalue(self):
-
-        """
-            Method to return the item text for the current item
-        """
-        item = self.itemlist[self.itemindex]
-        valuetext = "%s : %s" % (item.get_col(), item.get_value())
-        return valuetext
-
-    def drawindex(self):
-
-        """
-            Method to draw the current index
-        """
-        self.labelitem.config(text=self.itemtext())
-        if (self.hide.get() > 0) :
-            self.labelvalue.config(text="")
-        else:
-            self.labelvalue.config(text=self.itemvalue())
-        self.drawprogress()
 
 
-    def quit(self):
-        self.top.destroy()
+class TestWindow(wx.Frame):
 
 
-class TestWindow:
+    def __init__(self,parent, title,itemlist):
+        wx.Frame.__init__(self, wx.GetApp().TopWindow, title=title, size=(500, 400))
+        randomId = wx.NewId()
+        self.Bind(wx.EVT_MENU, self.OnCloseWindow, id=randomId)
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('W'), randomId )])
+        self.SetAcceleratorTable(accel_tbl)
 
-    def __init__(self, parent, itemlist,title,rows,cols):
+
+
+
         self.safelist = copy.copy(itemlist)
         self.itemlist = copy.copy(itemlist)
         self.missedlist = list()
@@ -361,77 +307,55 @@ class TestWindow:
         self.listcount = len(self.itemlist)
 
 
-        self.top = Toplevel(parent)
-        self.top.transient(parent)
-        self.top.grab_set()
-        self.top.title( self.title )
-        self.top.geometry("500x400+300+300")
-        self.labelitem = Label(self.top, text="")
-        self.labelitem.place(x=150, y=50)
-        #self.labelitem.pack()
+
+        self.lblitem = wx.StaticText(self, label="", pos=(150, 50))
+        self.txtentry = wx.TextCtrl(self, value="", pos=(150, 75), size=(200, -1))
+
+
+        self.btncheck = wx.Button(self, label="Check", pos=(355, 75))
+        self.Bind(wx.EVT_BUTTON, self.OnCheckEntry, self.btncheck)
+        self.btncheck.SetDefault()
+
+        self.lblprogress = wx.StaticText(self, label="", pos=(150, 155))
+        self.lblreview = wx.StaticText(self, label="", pos=(150, 175))
+        self.lblaccuracy = wx.StaticText(self, label="", pos=(150, 195))
+
+        self.lblhint = wx.StaticText(self, label="Hint?", pos=(150, 225))
+
+        self.btnhint = wx.Button(self, label="Hint", pos=(50, 225))
+        self.Bind(wx.EVT_BUTTON, self.OnHint, self.btnhint)
 
 
 
+        self.btnreset = wx.Button(self, label="Reset", pos=(50, 330))
+        self.Bind(wx.EVT_BUTTON, self.OnReset, self.btnreset)
+        self.btnreset.Hide()
 
-        self.entry = tk.StringVar(self.top, value='')
+        self.btnquit = wx.Button(self, label="Quit", pos=(350, 330))
+        self.Bind(wx.EVT_BUTTON, self.OnQuit, self.btnquit)
+        self.btnquit.Hide()
 
-        self.entryfield = ExtendedEntry(self.top,  textvariable=self.entry)
-        self.entryfield.place(x=150, y=75)
+        self.DrawIndex()
+        self.Centre()
+        self.Show(True)
+        self.txtentry.SetFocus()
 
-        self.btn_check = Button(self.top, text="Check", command=self.check_entry)
-        self.btn_check.place(x=350, y=75)
+    def OnCloseWindow(self, event):
+        """
+            Method to Destroy the window
+        """
 
-        self.lblprogress = Label(self.top, text="")
-        self.lblprogress.place(x=150, y=155)
-
-
-        self.lblreview = Label(self.top, text="")
-        self.lblreview.place(x=150, y=175)
-
-        self.lblaccuracy = Label(self.top, text="")
-        self.lblaccuracy.place(x=150, y=195)
-
-        self.lblhint= Label(self.top, text="Hint?")
-        self.lblhint.place(x=150, y=225)
-
-        self.btnhint = Button(self.top, text="Hint", command=self.hintitem)
-        self.btnhint.place(x=50, y=225)
-
-        self.labelinstructions = Message(self.top, text="To Input Diacritical Characters (ä,é,ñ,ü,è....) press:\n",width = 350)
-        self.labelinstructions.place(x=20, y=250)
-
-        self.labelinstructions1 = Message(self.top, text= " ctrl+' for acute\n"
-                                                        + " ctrl+` for grave\n"
-                                                        + " ctrl+u for diaeresis\n"
-                                                        + " ctrl+= for tilde\n"
-                                                        + " ctrl+^ for circumflex\n"
-                                         , width=350)
-        self.labelinstructions1.place(x=20, y=270)
-
-        self.labelinstructions2 = Message(self.top, text= "(i.e. ctrl+',e for é )\n"
-                                                        + "(i.e. ctrl+`,e for è )\n"
-                                                        + "(i.e. ctrl+u,a for ä )\n"
-                                                        + "(i.e. ctrl+=,n for ñ )\n"
-                                                        + "(i.e. ctrl+^,n for â )\n"
-                                         ,width = 400)
-        self.labelinstructions2.place(x=160, y=270)
+        self.Destroy()
 
 
-        self.drawindex()
+    def OnQuit(self, event):
+        """
+            Method to Close the App
+        """
 
-        self.top.bind('<Return>', (lambda e, b=self.btn_check: b.invoke()))
+        self.Close()
 
-        self.btnquit = Button(self.top, text="Done", command=self.quit)
-        self.btnquit.place_forget()
-
-        self.btn_reset = Button(self.top, text="Reset", command=self.reset)
-        self.btn_reset.place_forget()
-
-        self.entryfield.focus()
-
-
-
-    def reset(self):
+    def OnReset(self, event):
         """
             Method to reset the status of the test and copy the original list
         """
@@ -448,16 +372,16 @@ class TestWindow:
         self.missedit = False
         self.review = False
         self.listcount = len(self.itemlist)
-        self.btnquit.place_forget()
-        self.btn_reset.place_forget()
-        self.btnhint.configure(state=NORMAL)
-        self.btn_check.configure(state=NORMAL)
+        self.btnquit.Hide()
+        self.btnreset.Hide()
+        self.btnhint.Enable()
+        self.btncheck.Enable()
 
-        self.drawindex()
+        self.DrawIndex()
 
-        self.drawprogress()
+        self.DrawProgress()
 
-    def misseditem(self):
+    def HandleMissedItem(self):
 
         """
             Method to handle missed responses
@@ -469,34 +393,34 @@ class TestWindow:
             self.totalmisscount = self.totalmisscount + 1
         self.missedlist.append(self.itemlist[self.itemindex])
 
-    def check_entry(self):
+    def OnCheckEntry(self, event):
 
         """
             Method to check if the user input is correct
         """
 
         item = self.itemlist[self.itemindex]
-        value = item.get_value()
-        print "Testing: %s" % (self.itemtext())
+        value = item.GetValue()
+        print "Testing: %s" % (self.GetItemText())
         print "Correct Value: %s" % (value)
 
         # If the entry is correct go to the next item
-        if (value == self.entry.get()):
-            print "Correct Entry: %s" % (self.entry.get())
+        if (value == self.txtentry.GetValue()):
+            print "Correct Entry: %s" % (self.txtentry.GetValue())
             if (self.missedit == False):
                 self.hitcount  =self.hitcount + 1
                 if self.review == False:
                     self.totalhitcount = self.totalhitcount + 1
-            self.nextitem()
+            self.HandleNextItem()
 
         # If the entry is not correct, add it to the missed list
         else:
-            print "Incorrect Entry: %s" % (self.entry.get())
+            print "Incorrect Entry: %s" % (self.txtentry.GetValue())
             if (self.missedit == False):
-                self.misseditem()
-            self.drawindex()
+                self.HandleMissedItem()
+            self.DrawIndex()
 
-    def hintitem(self):
+    def OnHint(self, event):
 
         """
             Method to display a hint if the user doesn't know the answer
@@ -504,21 +428,21 @@ class TestWindow:
         """
 
         item = self.itemlist[self.itemindex]
-        value = item.get_value()
+        value = item.GetValue()
         print "Correct Value: %s" % (value)
 
-        self.lblhint.config(text=value)
-        self.misseditem()
+        self.lblhint.SetLabel(value)
+        self.HandleMissedItem()
 
 
-    def nextitem(self):
+    def HandleNextItem(self):
 
         """
             Method to move on to the next item, if the end is reached move the missed list to the current list
                 and start over with the missed list
         """
 
-        self.lblhint.config(text="Hint?")
+        self.lblhint.SetLabel("Hint?")
         self.missedit = False
         if self.itemindex + 1 < self.listcount:
             self.itemindex = self.itemindex +1
@@ -532,10 +456,10 @@ class TestWindow:
                 self.listcount = len(self.missedlist)
                 self.missedlist = list()
 
-        self.drawindex()
+        self.DrawIndex()
 
 
-    def drawprogress(self):
+    def DrawProgress(self):
         """
             Method to draw the progress in the labels
         """
@@ -544,67 +468,335 @@ class TestWindow:
 
         # If not in "Review" mode, display the progress in the progress label
         if (self.review == False):
-            self.lblprogress.config(text=progresstext)
-            self.lblreview.config(text="")
+            self.lblprogress.SetLabel(progresstext)
+            self.lblreview.SetLabel("")
 
         # If in "Review" mode, display the progress in the review label
         else:
             progresstext = "Review! %s" % (progresstext)
-            self.lblreview.config(text=progresstext)
+            self.lblreview.SetLabel(progresstext)
 
         # Calculate and display the accuracy of the answers
         if (self.totalmisscount + self.totalhitcount > 0):
             accuracy = (float(self.totalhitcount) / float(self.totalmisscount + self.totalhitcount)) * 100
             accuracytext = "Accuracy: %3.2f%%" % ( accuracy)
-            self.lblaccuracy.config(text=accuracytext)
+            self.lblaccuracy.SetLabel(accuracytext)
         else:
-            self.lblaccuracy.config(text="")
-    def itemtext(self):
+            self.lblaccuracy.SetLabel("")
+    def GetItemText(self):
 
         """
             Method to return the item text for the current item
         """
         item = self.itemlist[self.itemindex]
-        itemtext = "%s : %s" % (item.get_row(), item.get_col())
+        itemtext = "%s : %s" % (item.GetRow(), item.GetCol())
         return itemtext
 
-    def drawindex(self):
+    def DrawIndex(self):
 
         """
             Method to draw the current index
         """
 
-        # Make the entry field white if the answer is correct
-        if (self.missedit == False):
-            self.entryfield.configure(background='white')
-        # Make the entry field red if the last answer is correct
-        else:
-            self.entryfield.configure(background='red')
-
         # If the hitcount is equal to the listcount, then there were no errors and the test is complette
         if(self.hitcount == self.listcount ):
 
-            self.drawprogress()
-            self.btnhint.configure(state=DISABLED)
-            self.btn_check.configure(state=DISABLED)
+            self.DrawProgress()
+            self.btnhint.Disable()
+            self.btncheck.Disable()
 
-            self.btnquit.place(x=150, y=360)
-            self.btn_reset.place(x=350, y=360)
+            self.btnquit.Show()
+            self.btnreset.Show()
 
         else:
-            self.entry.set("")
-            self.labelitem.config(text=self.itemtext())
-            self.drawprogress()
+            self.txtentry.Clear()
+            self.lblitem.SetLabel(self.GetItemText())
+            self.DrawProgress()
+
+        # Make the entry field white if the answer is correct
+        if (self.missedit == False):
+            self.txtentry.SetBackgroundColour('white')
+        # Make the entry field red if the last answer is correct
+        else:
+            self.txtentry.SetBackgroundColour('red')
 
 
-    def quit(self):
-        self.top.destroy()
+        # Todo: For some reason the edit box only partialy changes color Hiding and showing it, causes it to
+        #   be redrawn
+        self.txtentry.Hide()
+        self.txtentry.Show()
+        self.txtentry.SetFocus()
 
 
-root = Tk()
-root.title("Learn from Spreadsheet")
-main_ui = GUI(root)
-root.lift()
-root.attributes('-topmost',True)
-root.after_idle(root.attributes,'-topmost',False)
-root.mainloop()
+class ShowWindow(wx.Frame):
+
+
+    def __init__(self,parent, title,itemlist,rows,cols):
+
+        wx.Frame.__init__(self, wx.GetApp().TopWindow, title=title, size=(500, 400))
+        randomId = wx.NewId()
+        self.Bind(wx.EVT_MENU, self.OnCloseWindow, id=randomId)
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('W'), randomId )])
+        self.SetAcceleratorTable(accel_tbl)
+
+
+        self.itemlist = copy.copy(itemlist)
+
+        self.grid = wx.grid.Grid(self)
+
+
+
+        self.grid.CreateGrid(rows, cols)
+        row = 0
+        # Col headers
+        item = itemlist[0]
+        self.grid.SetCellValue(0, 0, item.getColHeading())
+        self.grid.SetReadOnly(0, 0, isReadOnly=True)
+        for i in range(0, cols-1 ):
+            self.grid.SetColMinimalWidth(i+1,100)
+            item = itemlist[i]
+            self.grid.SetCellValue(0, i+1, item.GetCol())
+            self.grid.SetReadOnly(0,i+1,isReadOnly=True)
+
+        # Populate Cells
+        row = 1
+        col = 0
+        for i in range(0, len(itemlist)):
+            item = itemlist[i]
+            if (col == 0):
+                self.grid.SetCellValue(row, col, item.GetRow())
+                self.grid.SetReadOnly(row, col, isReadOnly=True)
+                col = 1
+
+
+            self.grid.SetCellValue(row, col, item.GetValue())
+            self.grid.SetReadOnly(row, col, isReadOnly=True)
+
+            col = col + 1
+            if (col == cols):
+                col = 0
+                row = row +1
+
+        self.grid.AutoSizeColumns(setAsMin=False)
+        width = 100
+        for i in range(0, cols):
+            width = width + self.grid.GetColSize(i)
+
+
+        height = 70
+        for i in range(0, rows):
+            height = height+ self.grid.GetRowSize(i)
+
+        height = 800 if height > 800 else height
+        width = 1000 if width > 1000 else width
+
+        self.SetSize((width,height))
+        self.Centre()
+        self.Show()
+
+    def OnCloseWindow(self, event):
+
+        """
+            Method to Destroy the window
+        """
+
+        self.Destroy()
+
+
+class LearnWindow(wx.Frame):
+
+
+    def __init__(self,parent, title,itemlist):
+        wx.Frame.__init__(self, wx.GetApp().TopWindow, title=title, size=(500, 400))
+        randomId = wx.NewId()
+        self.defaultcolour = self.GetBackgroundColour()
+        self.Centre()
+
+
+
+        self.itemlist = copy.copy(itemlist)
+        random.shuffle(self.itemlist)
+
+        self.title = title
+        self.itemindex = 0
+        self.listcount = len(self.itemlist)
+
+
+        font = wx.Font(18, wx.DEFAULT, wx.NORMAL, wx.NORMAL)
+
+        self.lblitem = wx.StaticText(self, label="", pos=(100, 50))
+        self.lblitem.SetFont(font)
+        self.labelvalue = wx.StaticText(self, label="", pos=(100, 80))
+        self.labelvalue.SetFont(font)
+
+        self.btnnext =wx.Button(self, label="Next", pos=(350, 110))
+        self.Bind(wx.EVT_BUTTON, self.OnNextItem, self.btnnext)
+        self.btnnext.SetDefault()
+
+        self.btnshow =wx.Button(self, label="Show", pos=(200, 110))
+        self.Bind(wx.EVT_BUTTON, self.OnShowItem, self.btnshow)
+        self.btnshow.Hide()
+
+
+        self.btnprevious =wx.Button(self, label="Previous", pos=(50, 110))
+        self.Bind(wx.EVT_BUTTON, self.OnPreviousItem, self.btnprevious)
+        self.lblprogress = wx.StaticText(self, label="", pos=(150, 155))
+
+        self.chkhide = wx.CheckBox(self, label="Hide answer?", pos=(150, 200))
+        self.Bind(wx.EVT_CHECKBOX, self.OnHideValue, self.chkhide)
+
+        self.isGerman = False
+        for item in self.itemlist:
+            if CheckItemIsGerman(item) != "":
+                self.isGerman = True
+                break
+
+        self.chkcolorcode = wx.CheckBox(self, label="Color Code Window (for German articles)?", pos=(150, 230))
+        self.Bind(wx.EVT_CHECKBOX, self.OnColorCode, self.chkcolorcode)
+
+        if (self.isGerman == True):
+            self.chkcolorcode.Show(show=True)
+            self.chkcolorcode.SetValue(True)
+        else:
+            self.chkcolorcode.Hide()
+
+        self.Bind(wx.EVT_MENU, self.OnCloseWindow, id=randomId)
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('W'), randomId ),(wx.ACCEL_NORMAL, wx.WXK_LEFT, self.btnprevious.GetId()),(wx.ACCEL_NORMAL, wx.WXK_RIGHT, self.btnnext.GetId()),(wx.ACCEL_NORMAL, wx.WXK_DOWN, self.btnshow.GetId()) ])
+        self.SetAcceleratorTable(accel_tbl)
+
+        self.DrawIndex()
+        self.Show()
+
+
+
+
+    def OnCloseWindow(self, event):
+
+        """
+            Method to Destroy the window
+        """
+
+        self.Destroy()
+
+    def OnShowItem(self, event):
+        """
+            Method to Show the Item Value
+        """
+
+        if (self.chkhide.IsChecked()):
+            self.labelvalue.SetLabel(self.GetItemValue())
+
+
+    def OnHideValue(self, event):
+
+        """
+            Method to hide the Value Label if the status changes.  The DrawIndex function checks the checbox control
+        """
+
+        self.DrawIndex()
+
+    def OnColorCode(self, event):
+
+        """
+            Method to hide the Value Label if the status changes.  The DrawIndex function checks the checbox control
+        """
+
+        self.DrawIndex()
+
+
+    def OnNextItem(self, event):
+
+        """
+            Method to move on to the next item
+        """
+
+        if self.itemindex + 1 < self.listcount:
+            self.itemindex = self.itemindex +1
+        self.DrawIndex()
+
+    def OnPreviousItem(self, event):
+
+        """
+            Method to move to the previous item
+        """
+
+        if self.itemindex - 1 >= 0:
+            self.itemindex = self.itemindex - 1
+        self.DrawIndex()
+
+
+    def DrawProgress(self):
+        """
+            Method to draw the progress in the label
+        """
+
+        progresstext = "Progress: %s of %s" % (self.itemindex + 1, self.listcount)
+
+        self.lblprogress.SetLabel(progresstext)
+
+    def GetItemText(self):
+
+        """
+            Method to return the item text for the current item
+        """
+        item = self.itemlist[self.itemindex]
+        itemtext = "%s : %s" % (item.getColHeading(), item.GetRow())
+        return itemtext
+
+    def GetItemValue(self):
+
+        """
+            Method to return the item text for the current item
+        """
+        item = self.itemlist[self.itemindex]
+        valuetext = "%s : %s" % (item.GetCol(), item.GetValue())
+        return valuetext
+
+    def GetItemColor(self):
+
+        """
+            Method to return the item text for the current item
+        """
+        itemarticle = CheckItemIsGerman(self.itemlist[self.itemindex])
+        if itemarticle == "der":
+            return wx.Colour(135,206,250)
+
+        if itemarticle == "die":
+            return wx.Colour(255,182,193)
+        if itemarticle == "das":
+            return wx.Colour(144,238,144)
+
+        return self.defaultcolour
+
+    def DrawIndex(self):
+
+        """
+            Method to draw the current index
+        """
+
+        self.lblitem.SetLabel(self.GetItemText())
+
+        # if the checkbox is checked, hid the itemvalue
+        if (self.chkhide.IsChecked()):
+            self.labelvalue.SetLabel("")
+            self.btnshow.Show(show=True)
+        else:
+            self.labelvalue.SetLabel(self.GetItemValue())
+            self.btnshow.Hide()
+
+        if (self.isGerman == True):
+            if (self.chkcolorcode.IsChecked() == True):
+                self.SetBackgroundColour(self.GetItemColor())
+            else:
+                self.SetBackgroundColour(self.defaultcolour)
+        self.DrawProgress()
+
+
+
+
+
+app = wx.App(False)
+frame = MainWindow(None, "Learnsheet")
+app.MainLoop()
+
+
