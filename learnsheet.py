@@ -539,7 +539,6 @@ class ShowWindow(wx.Frame):
         accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('W'), randomId )])
         self.SetAcceleratorTable(accel_tbl)
 
-
         self.itemlist = copy.copy(itemlist)
 
         self.grid = wx.grid.Grid(self)
@@ -613,7 +612,7 @@ class LearnWindow(wx.Frame):
         self.Centre()
 
 
-
+        self.originalitemlist = copy.copy(itemlist)
         self.itemlist = copy.copy(itemlist)
         random.shuffle(self.itemlist)
 
@@ -633,16 +632,21 @@ class LearnWindow(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnNextItem, self.btnnext)
         self.btnnext.SetDefault()
 
-        self.btnshow =wx.Button(self, label="Show", pos=(200, 110))
-        self.Bind(wx.EVT_BUTTON, self.OnShowItem, self.btnshow)
-        self.btnshow.Hide()
+        self.btnshowhide =wx.Button(self, label="Show", pos=(200, 110))
+        self.Bind(wx.EVT_BUTTON, self.OnShowItem, self.btnshowhide)
+        self.btnshowhide.Hide()
 
 
         self.btnprevious =wx.Button(self, label="Previous", pos=(50, 110))
         self.Bind(wx.EVT_BUTTON, self.OnPreviousItem, self.btnprevious)
         self.lblprogress = wx.StaticText(self, label="", pos=(150, 155))
 
+        self.chkrandom = wx.CheckBox(self, label="Randomize?", pos=(150, 180))
+        self.chkrandom.SetValue(True)
+        self.Bind(wx.EVT_CHECKBOX, self.OnRandomize, self.chkrandom)
+
         self.chkhide = wx.CheckBox(self, label="Hide answer?", pos=(150, 200))
+        self.chkhide.SetValue(True)
         self.Bind(wx.EVT_CHECKBOX, self.OnHideValue, self.chkhide)
 
         self.isGerman = False
@@ -654,14 +658,20 @@ class LearnWindow(wx.Frame):
         self.chkcolorcode = wx.CheckBox(self, label="Color Code Window (for German articles)?", pos=(150, 230))
         self.Bind(wx.EVT_CHECKBOX, self.OnColorCode, self.chkcolorcode)
 
+
         if (self.isGerman == True):
             self.chkcolorcode.Show(show=True)
             self.chkcolorcode.SetValue(True)
         else:
             self.chkcolorcode.Hide()
 
+        self.lblarrowright = wx.StaticText(self, label="Arrow: → Next Item", pos=(150, 250))
+        self.lblarrowleft  = wx.StaticText(self, label="Arrow: ← Previous Item", pos=(150, 270))
+        self.lblarrowdown = wx.StaticText(self, label="Arrow: ↓ Show Answer", pos=(150, 290))
+        self.lblarrowdown.Hide()
+
         self.Bind(wx.EVT_MENU, self.OnCloseWindow, id=randomId)
-        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('W'), randomId ),(wx.ACCEL_NORMAL, wx.WXK_LEFT, self.btnprevious.GetId()),(wx.ACCEL_NORMAL, wx.WXK_RIGHT, self.btnnext.GetId()),(wx.ACCEL_NORMAL, wx.WXK_DOWN, self.btnshow.GetId()) ])
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('W'), randomId ), (wx.ACCEL_NORMAL, wx.WXK_LEFT, self.btnprevious.GetId()), (wx.ACCEL_NORMAL, wx.WXK_RIGHT, self.btnnext.GetId()), (wx.ACCEL_NORMAL, wx.WXK_DOWN, self.btnshowhide.GetId()), (wx.ACCEL_NORMAL, wx.WXK_UP, self.btnshowhide.GetId())])
         self.SetAcceleratorTable(accel_tbl)
 
         self.DrawIndex()
@@ -684,8 +694,25 @@ class LearnWindow(wx.Frame):
         """
 
         if (self.chkhide.IsChecked()):
-            self.labelvalue.SetLabel(self.GetItemValue())
+            if self.btnshowhide.GetLabelText() == "Show":
+                self.btnshowhide.SetLabelText("Hide")
+                self.labelvalue.SetLabel(self.GetItemValue())
+            else:
+                self.btnshowhide.SetLabelText("Show")
+                self.DrawIndex()
 
+    def OnRandomize(self, event):
+
+        if (self.chkrandom.IsChecked()):
+            self.itemlist = copy.copy(self.originalitemlist)
+            random.shuffle(self.itemlist)
+
+            self.itemindex = 0
+        else:
+            self.itemlist = copy.copy(self.originalitemlist)
+            self.itemindex = 0
+
+        self.DrawIndex()
 
     def OnHideValue(self, event):
 
@@ -712,6 +739,9 @@ class LearnWindow(wx.Frame):
 
         if self.itemindex + 1 < self.listcount:
             self.itemindex = self.itemindex +1
+        else:
+            self.itemindex = 0
+
         self.DrawIndex()
 
     def OnPreviousItem(self, event):
@@ -752,6 +782,15 @@ class LearnWindow(wx.Frame):
         valuetext = "%s : %s" % (item.GetCol(), item.GetValue())
         return valuetext
 
+    def GetItemValueHidden(self):
+
+        """
+            Method to return the item text for the current item
+        """
+        item = self.itemlist[self.itemindex]
+        valuetext = "%s : ?" % (item.GetCol())
+        return valuetext
+
     def GetItemColor(self):
 
         """
@@ -778,11 +817,15 @@ class LearnWindow(wx.Frame):
 
         # if the checkbox is checked, hid the itemvalue
         if (self.chkhide.IsChecked()):
-            self.labelvalue.SetLabel("")
-            self.btnshow.Show(show=True)
+            self.labelvalue.SetLabel(self.GetItemValueHidden())
+            self.btnshowhide.Show(show=True)
+            self.lblarrowdown.Show(show=True)
+            self.btnshowhide.SetLabelText("Show")
+
         else:
             self.labelvalue.SetLabel(self.GetItemValue())
-            self.btnshow.Hide()
+            self.btnshowhide.Hide()
+            self.lblarrowdown.Hide()
 
         if (self.isGerman == True):
             if (self.chkcolorcode.IsChecked() == True):
